@@ -1,73 +1,81 @@
 import fs from "fs";
 
+// @note interfaces for items.json structure
+interface ItemData {
+  item_id: number;
+  name: string;
+}
+
+interface ItemsFile {
+  version: number;
+  item_count: number;
+  items: ItemData[];
+}
+
 export class GenerateItemsEnum {
-  private filePath: string;
-  private itemsData: any;
+  // @note cached regex for sanitization (combines non-alphanumeric removal + space to underscore)
+  private static readonly SANITIZE_REGEX = /[^A-Za-z0-9_]+/g;
+  private static readonly INVALID_NAMES = new Set(["", "0", "NULL", "NONE", "N"]);
 
-  constructor() {
-    this.filePath = "items.json";
-    this.itemsData = null;
-  }
+  private itemsData: ItemsFile | null = null;
 
-  public loadFromFile(filePath: string = "items.json"): void {
-    this.filePath = filePath;
-
-    // Check if file exists
-    if (!fs.existsSync(this.filePath)) {
-      throw new Error(`File not found: ${this.filePath}`);
+  // @note loadFromFile - loads items.json from given path, validates file type
+  public loadFromFile(filePath: string): void {
+    if (!filePath.endsWith(".json")) {
+      throw new Error(`Invalid file type. Expected a .json file: ${filePath}`);
     }
 
-    // Check file type
-    const fileStat = fs.statSync(this.filePath);
+    const fileStat = fs.statSync(filePath);
     if (!fileStat.isFile()) {
-      throw new Error(`Not a valid file: ${this.filePath}`);
-    }
-    if (!this.filePath.endsWith(".json")) {
-      throw new Error(`Invalid file type. Expected a .json file: ${this.filePath}`);
+      throw new Error(`Not a valid file: ${filePath}`);
     }
 
-    const fileContent = fs.readFileSync(this.filePath, "utf-8");
-    this.itemsData = JSON.parse(fileContent);
+    this.itemsData = JSON.parse(fs.readFileSync(filePath, "utf-8"));
   }
 
   get itemsVersion(): number {
-    return this.itemsData.version as number || -1;
-  }
-  get itemsCount(): number {
-    return this.itemsData.item_count as number || -1;
+    return this.itemsData?.version ?? -1;
   }
 
+  get itemsCount(): number {
+    return this.itemsData?.item_count ?? -1;
+  }
+
+  // @note buildEnum - generates C++ enum string from loaded items data
   public buildEnum(tabSize: number = 4): string {
     if (!this.itemsData) {
       throw new Error("Items data not loaded. Please load data before building enum.");
     }
 
-    let enumString = `enum eItems {\n`;
-    for (const item of this.itemsData.items) {
-      const itemName = this.sanitizeEnumName(item.name as string);
+    const items = this.itemsData.items;
+    const len = items.length;
+    const indent = " ".repeat(tabSize);
+    const invalidNames = GenerateItemsEnum.INVALID_NAMES;
+    const regex = GenerateItemsEnum.SANITIZE_REGEX;
 
+    // @note pre-allocate array for better performance
+    const lines: string[] = new Array(len);
+    let lineIdx = 0;
 
-      // Validate item name
-      if (["", "0", "NULL", "NONE", "N"].includes(itemName)) continue;
+    for (let i = 0; i < len; i++) {
+      const item = items[i];
 
-      enumString += `${" ".repeat(tabSize)}${itemName} = ${item.item_id},\n`;
+      // @note inline sanitization for hot loop performance
+      let sanitized = item.name.trim().replace(regex, "_").toUpperCase();
+
+      // @note handle leading digit
+      if (sanitized.charCodeAt(0) >= 48 && sanitized.charCodeAt(0) <= 57) {
+        sanitized = "_" + sanitized;
+      }
+
+      if (invalidNames.has(sanitized)) continue;
+
+      lines[lineIdx++] = `${indent}${sanitized} = ${item.item_id},`;
     }
-    enumString += `};\n`;
-    return enumString;
-  }
 
-  private sanitizeEnumName(name: string): string {
-    // Sanitize item name into enum-safe identifier
-    const sanitized = name
-      .trim()
-      .replace(/[^A-Za-z0-9_ ]/g, '')
-      .replace(/ /g, '_')
-      .toUpperCase();
+    // @note trim unused array slots
+    lines.length = lineIdx;
 
-    // Add '_' prefix if name starts with a digit
-    if (/^[0-9]/.test(sanitized)) {
-      return `_${sanitized}`;
-    }
-    return sanitized;
+    return `enum eItems {\n${lines.join("\n")}\n};\n`;
   }
 }
