@@ -62,9 +62,13 @@ export class GenerateItemsEnum {
   }
 
   // @note buildEnum - generates C++ enum string from loaded items data
-  public buildEnum(tabSize: number = 4): string {
+  public buildEnum(tabSize: number = 4, prefix: string = ""): string {
     if (!this.itemsData) {
       throw new Error("Items data not loaded. Please load data before building enum.");
+    }
+
+    if (prefix.trim()) {
+      prefix = prefix.trim().toUpperCase() + "_";
     }
 
     const items = this.itemsData.items;
@@ -109,7 +113,7 @@ export class GenerateItemsEnum {
       }
       usedNames.add(finalName);
 
-      lines[lineIdx++] = `${indent}${finalName} = ${item.item_id},`;
+      lines[lineIdx++] = `${indent}${prefix}${finalName} = ${item.item_id},`;
     }
 
     // @note trim unused array slots
