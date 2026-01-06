@@ -59,6 +59,7 @@ export class GenerateItemsEnum {
 
     for (let i = 0; i < len; i++) {
       const item = items[i];
+      if (!item) continue;
 
       // @note inline sanitization for hot loop performance
       let sanitized = item.name.trim().replace(regex, "_").toUpperCase();
