@@ -68,7 +68,10 @@ export class GenerateItemsEnum {
     }
 
     if (prefix.trim()) {
-      prefix = prefix.trim().toUpperCase() + "_";
+      prefix = prefix.trim().toUpperCase();
+      if (!prefix.endsWith("_")) {
+        prefix += "_";
+      }
     }
 
     const items = this.itemsData.items;
