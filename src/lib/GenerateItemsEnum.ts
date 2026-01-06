@@ -57,6 +57,9 @@ export class GenerateItemsEnum {
     const lines: string[] = new Array(len);
     let lineIdx = 0;
 
+    // @note track used enum names to prevent duplicates
+    const usedNames = new Set<string>();
+
     for (let i = 0; i < len; i++) {
       const item = items[i];
       if (!item) continue;
@@ -71,7 +74,16 @@ export class GenerateItemsEnum {
 
       if (invalidNames.has(sanitized)) continue;
 
-      lines[lineIdx++] = `${indent}${sanitized} = ${item.item_id},`;
+      // @note handle duplicate enum names by appending _2, _3, etc.
+      let finalName = sanitized;
+      let suffix = 2;
+      while (usedNames.has(finalName)) {
+        finalName = `${sanitized}_${suffix}`;
+        suffix++;
+      }
+      usedNames.add(finalName);
+
+      lines[lineIdx++] = `${indent}${finalName} = ${item.item_id},`;
     }
 
     // @note trim unused array slots
