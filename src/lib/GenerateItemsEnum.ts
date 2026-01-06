@@ -16,6 +16,26 @@ export class GenerateItemsEnum {
   // @note cached regex for sanitization (combines non-alphanumeric removal + space to underscore)
   private static readonly SANITIZE_REGEX = /[^A-Za-z0-9_]+/g;
   private static readonly INVALID_NAMES = new Set(["", "0", "NULL", "NONE", "N"]);
+  // @note C++ reserved keywords and common macros that need suffix
+  private static readonly RESERVED_KEYWORDS = new Set([
+    // C keywords
+    "AUTO", "BREAK", "CASE", "CHAR", "CONST", "CONTINUE", "DEFAULT", "DO", "DOUBLE", "ELSE",
+    "ENUM", "EXTERN", "FLOAT", "FOR", "GOTO", "IF", "INT", "LONG", "REGISTER", "RETURN",
+    "SHORT", "SIGNED", "SIZEOF", "STATIC", "STRUCT", "SWITCH", "TYPEDEF", "UNION", "UNSIGNED",
+    "VOID", "VOLATILE", "WHILE",
+    // C++ keywords
+    "ASM", "BOOL", "CATCH", "CLASS", "CONST_CAST", "DELETE", "DYNAMIC_CAST", "EXPLICIT",
+    "EXPORT", "FALSE", "FRIEND", "INLINE", "MUTABLE", "NAMESPACE", "NEW", "OPERATOR",
+    "PRIVATE", "PROTECTED", "PUBLIC", "REINTERPRET_CAST", "STATIC_CAST", "TEMPLATE", "THIS",
+    "THROW", "TRUE", "TRY", "TYPEID", "TYPENAME", "USING", "VIRTUAL", "WCHAR_T",
+    // C++11 and later
+    "ALIGNAS", "ALIGNOF", "CHAR16_T", "CHAR32_T", "CONSTEXPR", "DECLTYPE", "NOEXCEPT",
+    "NULLPTR", "STATIC_ASSERT", "THREAD_LOCAL",
+    // C++20
+    "CONCEPT", "REQUIRES", "CO_AWAIT", "CO_RETURN", "CO_YIELD",
+    // Common macros
+    "NULL", "DATE", "TIME"
+  ]);
 
   private itemsData: ItemsFile | null = null;
 
@@ -51,6 +71,7 @@ export class GenerateItemsEnum {
     const len = items.length;
     const indent = " ".repeat(tabSize);
     const invalidNames = GenerateItemsEnum.INVALID_NAMES;
+    const reservedKeywords = GenerateItemsEnum.RESERVED_KEYWORDS;
     const regex = GenerateItemsEnum.SANITIZE_REGEX;
 
     // @note pre-allocate array for better performance
@@ -73,6 +94,11 @@ export class GenerateItemsEnum {
       }
 
       if (invalidNames.has(sanitized)) continue;
+
+      // @note add suffix to reserved keywords to avoid conflicts
+      if (reservedKeywords.has(sanitized)) {
+        sanitized = `${sanitized}_`;
+      }
 
       // @note handle duplicate enum names by appending _2, _3, etc.
       let finalName = sanitized;
